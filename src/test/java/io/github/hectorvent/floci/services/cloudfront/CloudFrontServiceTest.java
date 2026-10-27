@@ -339,6 +339,27 @@ class CloudFrontServiceTest {
     }
 
     @Test
+    void tagsSentAtCreateAreReturnedByTheArnLookup() {
+        CloudFrontService service = serviceWithDomainSuffix(DEFAULT_DOMAIN_SUFFIX);
+
+        // CreateDistributionWithTags stores the tags; ListTagsForResource looks them up
+        // by the distribution ARN (the Resource both the SDK and Terraform send), so the
+        // two have to agree on the key.
+        Distribution dist = service.createDistribution(new Distribution(),
+                Map.of("Environment", "dev", "Team", "platform"));
+
+        assertEquals(Map.of("Environment", "dev", "Team", "platform"),
+                service.listTagsForResource(dist.getArn()));
+
+        service.tagResource(dist.getArn(), Map.of("Owner", "sre"));
+        assertEquals("sre", service.listTagsForResource(dist.getArn()).get("Owner"));
+
+        service.deleteDistribution(dist.getId(), dist.getEtag());
+        assertTrue(service.listTagsForResource(dist.getArn()).isEmpty(),
+                "deleting the distribution should drop its tags");
+    }
+
+    @Test
     void createPublicKeyIssuesAnAwsShapedId() throws Exception {
         CloudFrontService service = serviceWithDomainSuffix(DEFAULT_DOMAIN_SUFFIX);
 
